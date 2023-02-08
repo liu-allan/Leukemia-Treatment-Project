@@ -1,4 +1,4 @@
-function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, anticipatory_trajectory, reactive_dosage, anticipatory_dosage] = runController(bsa_arg, num_cycles_arg, dosage)
+function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, anticipatory_trajectory, reactive_dosage, anticipatory_dosage] = runController(bsa_arg, num_cycles_arg, dosage, anc_measurements)
     %% 2. Trajectory with Jost et al. model
     %% 2.1 Intialization of constants
     bsa = bsa_arg;
@@ -24,14 +24,26 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     num_t_ref = (1/step_size_ref)*21+1; % number of timepoints to evaluate ODE45
     tspan = linspace(0,21,num_t_ref); %21 days
     
-    u_i = dosage*bsa; % 6-MP dosage (mg 6-MP/m^2 body surface area)
+    dosage = cell2mat(dosage);
+    historical_dosages = dosage*bsa; % 6-MP dosage (mg 6-MP/m^2 body surface area)
+    anc_measurements = cell2mat(anc_measurements);
     x0_i = x0;
     %1 cycle is 21 days
     for i=1:num_cycles
+        
+        if i <= length(historical_dosages)
+            u_i = historical_dosages(i);
+        end
+
+        if i <= length(anc_measurements)
+            x0_i(8) = anc_measurements(i);
+        end
+
         u_ref = [u_ref [u_i*(ones((1/step_size_ref)*14,1));zeros((1/step_size_ref)*(21-14)+1,1)]];
         [t_i,x_i] = ode45(@(t,x)jost(t,x,u_i,theta),tspan,x0_i);
         t_i = t_i + 21*(i-1); % shift the time index to the current cycle
         % check lower bound
+        
         if x_i(end,8) < 1
             u_i = 0.8*u_i;
         elseif x_i(end,8) > 2 % check upper bound
@@ -57,48 +69,48 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
 
     nominal_trajectory = x_ref_flattened(:,8)*1e9;
     
-%     %% 2.3 Plot of 6-MP trajectory
-%     
-%     figure('Name', 'Plot of 6-MP trajectory')
-%     hold on
-%     xlabel('Days Elapsed')
-%     ylabel('Amount (mg) or Concentration (mg/L blood)')
-%     title("6-MP and 6-TGN Amount vs Days Elapsed")
-%     plot(t_ref_flattened,x_ref_flattened(:,1))
-%     plot(t_ref_flattened,x_ref_flattened(:,2))
-%     plot(t_ref_flattened,x_ref_flattened(:,3))
-%     legend("x_1 6-MP in the gut (mg)","x_2 6-MP in the bloodstream (mg)","x_3 6-TGN in the bloodstream (mg/L blood)")
-%     hold off
-%     
-%     %% 2.4 Plot of number of proliferating cells, number of cells in each compartment, and number of mature neutrophils
-%     
-%     figure('Name', 'Plot of number of proliferating cells, number of cells in each compartment, and number of mature neutrophils')
-%     hold on
-%     xlabel('Days Elapsed')
-%     ylabel('Number of cells / L blood')
-%     title("Number of Cells per L Blood vs Days Elapsed")
-%     plot(t_ref_flattened,x_ref_flattened(:,4)*1e9)
-%     plot(t_ref_flattened,x_ref_flattened(:,5)*1e9)
-%     plot(t_ref_flattened,x_ref_flattened(:,6)*1e9)
-%     plot(t_ref_flattened,x_ref_flattened(:,7)*1e9)
-%     plot(t_ref_flattened,x_ref_flattened(:,8)*1e9)
-%     legend("x_4 Proliferating cells","x_5 Compartment 1","x_6 Compartment 2","x_7 Compartment 3","x_8 Mature neutrophils")
-%     hold off
-%     
-%     %% 2.5 Plot of neutrophil trajectory (color-coded by cycle)
-%     
-%     figure('Name', 'Plot of neutrophil trajectory (color-coded by cycle)')
-%     hold on
-%     xlabel('Days Elapsed')
-%     ylabel('ANC (Number of cells / L blood)')
-%     title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-%     for i=1:num_cycles
-%         plot(t_ref(:,i),x_ref(:,8*i)*10^9)
-%     end
-%     yline(1e9,'-b','Desired lower bound')
-%     yline(2e9,'-r','Desired upper bound')
-%     hold off
-%     
+    %% 2.3 Plot of 6-MP trajectory
+    
+    figure('Name', 'Plot of 6-MP trajectory')
+    hold on
+    xlabel('Days Elapsed')
+    ylabel('Amount (mg) or Concentration (mg/L blood)')
+    title("6-MP and 6-TGN Amount vs Days Elapsed")
+    plot(t_ref_flattened,x_ref_flattened(:,1))
+    plot(t_ref_flattened,x_ref_flattened(:,2))
+    plot(t_ref_flattened,x_ref_flattened(:,3))
+    legend("x_1 6-MP in the gut (mg)","x_2 6-MP in the bloodstream (mg)","x_3 6-TGN in the bloodstream (mg/L blood)")
+    hold off
+    
+    %% 2.4 Plot of number of proliferating cells, number of cells in each compartment, and number of mature neutrophils
+    
+    figure('Name', 'Plot of number of proliferating cells, number of cells in each compartment, and number of mature neutrophils')
+    hold on
+    xlabel('Days Elapsed')
+    ylabel('Number of cells / L blood')
+    title("Number of Cells per L Blood vs Days Elapsed")
+    plot(t_ref_flattened,x_ref_flattened(:,4)*1e9)
+    plot(t_ref_flattened,x_ref_flattened(:,5)*1e9)
+    plot(t_ref_flattened,x_ref_flattened(:,6)*1e9)
+    plot(t_ref_flattened,x_ref_flattened(:,7)*1e9)
+    plot(t_ref_flattened,x_ref_flattened(:,8)*1e9)
+    legend("x_4 Proliferating cells","x_5 Compartment 1","x_6 Compartment 2","x_7 Compartment 3","x_8 Mature neutrophils")
+    hold off
+    
+    %% 2.5 Plot of neutrophil trajectory (color-coded by cycle)
+    
+    figure('Name', 'Plot of neutrophil trajectory (color-coded by cycle)')
+    hold on
+    xlabel('Days Elapsed')
+    ylabel('ANC (Number of cells / L blood)')
+    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
+    for i=1:num_cycles
+        plot(t_ref(:,i),x_ref(:,8*i)*10^9)
+    end
+    yline(1e9,'-b','Desired lower bound')
+    yline(2e9,'-r','Desired upper bound')
+    hold off
+
     clear i;
     
     %% 2.6 Linearization
@@ -115,7 +127,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     t_lin_j_start = 0; % current time at end of last cycle
     x_t = x0; % initial "guess"
-    u_i = dosage*bsa;
+    % u_i = dosage*bsa;
     
     
     dx_t = zeros(8,1); % keep track of delta x
@@ -124,6 +136,11 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     dx_t_arr = [];
     
     for i=1:num_cycles
+        
+        if i <= length(historical_dosages)
+            u_i = historical_dosages(i);
+        end
+
         u_lin = [u_lin u_i];
         u_star = u_ref(end,i);
         du_t = u_i - u_star;
@@ -165,34 +182,34 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
         t_lin_flattened = [t_lin_flattened; t_lin(:,i)];
     end
     
-%     figure('Name', 'Linearization')
-%     hold on
-%     xlabel('Days Elapsed')
-%     ylabel('Number of cells / L blood')
-%     title("Number of Cells per L Blood vs Days Elapsed")
-%     plot(t_lin_flattened,x_lin_flattened(:,4)*1e9)
-%     plot(t_lin_flattened,x_lin_flattened(:,5)*1e9)
-%     plot(t_lin_flattened,x_lin_flattened(:,6)*1e9)
-%     plot(t_lin_flattened,x_lin_flattened(:,7)*1e9)
-%     plot(t_lin_flattened,x_lin_flattened(:,8)*1e9)
-%     legend("x_4 Proliferating cells","x_5 Compartment 1","x_6 Compartment 2","x_7 Compartment 3","x_8 Mature neutrophils")
-%     hold off
-%     
-%     
-%     figure()
-%     hold on
-%     xlabel('Days Elapsed')
-%     ylabel('ANC (Number of cells / L blood)')
-%     title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-%     plot(t_lin_flattened,x_lin_flattened(:,8)*1e9)
-%     plot(t_ref_flattened,x_ref_flattened(:,8)*1e9)
-%     
-%     yline(1e9,'-b')
-%     yline(2e9,'-r')
-%     
-%     legend("Linearized","Original","Desired lower bound","Desired upper bound","Location","southwest")
-%     hold off
-% 
+    figure('Name', 'Linearization')
+    hold on
+    xlabel('Days Elapsed')
+    ylabel('Number of cells / L blood')
+    title("Number of Cells per L Blood vs Days Elapsed")
+    plot(t_lin_flattened,x_lin_flattened(:,4)*1e9)
+    plot(t_lin_flattened,x_lin_flattened(:,5)*1e9)
+    plot(t_lin_flattened,x_lin_flattened(:,6)*1e9)
+    plot(t_lin_flattened,x_lin_flattened(:,7)*1e9)
+    plot(t_lin_flattened,x_lin_flattened(:,8)*1e9)
+    legend("x_4 Proliferating cells","x_5 Compartment 1","x_6 Compartment 2","x_7 Compartment 3","x_8 Mature neutrophils")
+    hold off
+    
+    
+    figure()
+    hold on
+    xlabel('Days Elapsed')
+    ylabel('ANC (Number of cells / L blood)')
+    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
+    plot(t_lin_flattened,x_lin_flattened(:,8)*1e9)
+    plot(t_ref_flattened,x_ref_flattened(:,8)*1e9)
+    
+    yline(1e9,'-b')
+    yline(2e9,'-r')
+    
+    legend("Linearized","Original","Desired lower bound","Desired upper bound","Location","southwest")
+    hold off
+
     linearized_trajectory = x_lin_flattened(:,8)*1e9;
     
     clear i j x_lin_j x0_i u_i tspan;
@@ -222,6 +239,15 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     
     for i=1:num_cycles
+
+        if i <= length(historical_dosages)
+            u_i = historical_dosages(i);
+        end
+
+        if i <= length(anc_measurements)
+            x0_i(8) = anc_measurements(i);
+        end
+        
         u_i_all = [transpose(repelem(u_i,(1/step_size_noisy)*14));transpose(repelem(0,(1/step_size_noisy)*(21-14)+1))];
         u_noisy_r = [u_noisy_r u_i_all];
         [t_i,x_i] = ode45(@(t,x)jost_noisy(t,x,u_i,theta,step_size_noisy,var_w),tspan,x0_i);
@@ -259,25 +285,25 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     end
     clear i;
     
-%     figure('Name', 'Reactive Controller 1')
-%     hold on
-%     xlabel('Days Elapsed')
-%     ylabel('ANC (Number of cells / L blood)')
-%     title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-%     plot(t_noisy_r_flattened,x_noisy_r_flattened(:,8)*1e9)
-%     plot(t_ref_flattened,x_ref_flattened(:,8)*1e9)
-%     yline(1e9,'-b')
-%     yline(2e9,'-r')
-%     legend("Noisy","Original","Desired lower bound","Desired upper bound","Location","southwest")
-%     hold off
-%     
-%     figure('Name', 'Reactive Controller 2')
-%     hold on
-%     title("Noisy model reactive controller control sequence")
-%     plot(t_noisy_r_flattened,u_noisy_r_flattened)
-%     xlabel("Time elapsed (days)")
-%     ylabel("Input dosage (mg)")
-%     hold off
+    figure('Name', 'Reactive Controller 1')
+    hold on
+    xlabel('Days Elapsed')
+    ylabel('ANC (Number of cells / L blood)')
+    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
+    plot(t_noisy_r_flattened,x_noisy_r_flattened(:,8)*1e9)
+    plot(t_ref_flattened,x_ref_flattened(:,8)*1e9)
+    yline(1e9,'-b')
+    yline(2e9,'-r')
+    legend("Noisy","Original","Desired lower bound","Desired upper bound","Location","southwest")
+    hold off
+    
+    figure('Name', 'Reactive Controller 2')
+    hold on
+    title("Noisy model reactive controller control sequence")
+    plot(t_noisy_r_flattened,u_noisy_r_flattened)
+    xlabel("Time elapsed (days)")
+    ylabel("Input dosage (mg)")
+    hold off
     
     toc
     
@@ -430,34 +456,34 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     anticipatory_trajectory = x8_c_plot*1e9;
 
-%     figure('Name', 'Anticipatory 1')
-%     plot(t_noisy_r_flattened(1:N),x_noisy_r_flattened(1:N,8));
-%     hold on
-%     rho8_plot = reshape(rho(8,1,:),[N+1 1]); %anticipatory
-%     plot(time,x8_c_plot)
-%     hold on
-%     plot(time,rho8_plot)
-%     legend('reactive','KF','nominal')
-%     
-%     
-%     
-%     figure('Name', 'Anticipatory 2')
-%     hold on
-%     title("Noisy model KF controller control sequence")
-%     plot(time(1:N),u_c)
-%     xlabel("Time elapsed (days)")
-%     ylabel("Input dosage (mg)")
-%     hold off
-%     
-%     figure('Name', 'Anticipatory 3')
-%     hold on
-%     title("Noisy model control sequence comparison")
-%     plot(t_noisy_r_flattened,u_noisy_r_flattened) % u_noisy_r_flattened is reactive
-%     plot(time(1:N),u_c) % u_c is anticipatory dosage
-%     legend('reactive control sequence','KF control sequence')
-%     xlabel("Time elapsed (days)")
-%     ylabel("Input dosage (mg)")
-%     hold off
+    figure('Name', 'Anticipatory 1')
+    plot(t_noisy_r_flattened(1:N),x_noisy_r_flattened(1:N,8));
+    hold on
+    rho8_plot = reshape(rho(8,1,:),[N+1 1]); %anticipatory
+    plot(time, x8_c_plot)
+    hold on
+    plot(time,rho8_plot)
+    legend('reactive','KF','nominal')
+    
+    
+    
+    figure('Name', 'Anticipatory 2')
+    hold on
+    title("Noisy model KF controller control sequence")
+    plot(time(1:N),u_c)
+    xlabel("Time elapsed (days)")
+    ylabel("Input dosage (mg)")
+    hold off
+    
+    figure('Name', 'Anticipatory 3')
+    hold on
+    title("Noisy model control sequence comparison")
+    plot(t_noisy_r_flattened,u_noisy_r_flattened) % u_noisy_r_flattened is reactive
+    plot(time(1:N),u_c) % u_c is anticipatory dosage
+    legend('reactive control sequence','KF control sequence')
+    xlabel("Time elapsed (days)")
+    ylabel("Input dosage (mg)")
+    hold off
     
     toc
     time = t_ref_flattened;
