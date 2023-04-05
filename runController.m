@@ -467,6 +467,11 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     %% 2.8.2 Model's Response with Smoothed Inputs - Cyclic Intervals
     
+    x_smoothed = [];
+    t_smoothed = [];
+    step_size_smoothed = 0.01; % very fine step size
+    num_t_smoothed = (1/step_size_smoothed)*21+1; % number of timepoints to evaluate ODE45
+    tspan = linspace(0,21,num_t_smoothed);
     x0_i = x0;
         
     for i=1:num_cycles
