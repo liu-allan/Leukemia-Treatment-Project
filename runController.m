@@ -369,7 +369,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     toc
     %time = t_ref_flattened;
     %anticipatory_dosage = u_c.';
-    reactive_dosage = u_noisy_r_flattened;
+    reactive_dosage = u_noisy_r_flattened / bsa;
 
     tic
 
@@ -419,7 +419,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     clear t start_i i day idx_7_days_later sum u_i
     
-    anticipatory_dosage = u_smoothed_flattened.';
+    anticipatory_dosage = u_smoothed_flattened.' / bsa;
     
     %% 2.8.2 Model's Response with Smoothed Inputs - Cyclic Intervals
     
