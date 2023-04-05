@@ -69,50 +69,6 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
 
     nominal_trajectory = x_ref_flattened(:,8);
     
-    %% 2.3 Plot of 6-MP trajectory
-    
-    figure('Name', 'Plot of 6-MP trajectory')
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('Amount (mg) or Concentration (mg/L blood)')
-    title("6-MP and 6-TGN Amount vs Days Elapsed")
-    plot(t_ref_flattened,x_ref_flattened(:,1))
-    plot(t_ref_flattened,x_ref_flattened(:,2))
-    plot(t_ref_flattened,x_ref_flattened(:,3))
-    legend("x_1 6-MP in the gut (mg)","x_2 6-MP in the bloodstream (mg)","x_3 6-TGN in the bloodstream (mg/L blood)")
-    hold off
-    
-    %% 2.4 Plot of number of proliferating cells, number of cells in each compartment, and number of mature neutrophils
-    
-    figure('Name', 'Plot of number of proliferating cells, number of cells in each compartment, and number of mature neutrophils')
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('ANC (Number of cells / L blood) x 1e9')
-    title("Number of Cells per L Blood vs Days Elapsed")
-    plot(t_ref_flattened,x_ref_flattened(:,4))
-    plot(t_ref_flattened,x_ref_flattened(:,5))
-    plot(t_ref_flattened,x_ref_flattened(:,6))
-    plot(t_ref_flattened,x_ref_flattened(:,7))
-    plot(t_ref_flattened,x_ref_flattened(:,8))
-    legend("x_4 Proliferating cells","x_5 Compartment 1","x_6 Compartment 2","x_7 Compartment 3","x_8 Mature neutrophils")
-    hold off
-    
-    %% 2.5 Plot of neutrophil trajectory (color-coded by cycle)
-    
-    figure('Name', 'Plot of neutrophil trajectory (color-coded by cycle)')
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('ANC (Number of cells / L blood) x 1e9')
-    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-    for i=1:num_cycles
-        plot(t_ref(:,i),x_ref(:,8*i))
-    end
-    yline(1,'-b','Desired lower bound')
-    yline(2,'-r','Desired upper bound')
-    hold off
-
-    clear i;
-    
     %% 2.6 Linearization
     
     bsa = bsa_arg; % trajectory near original bsa
