@@ -181,34 +181,6 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
         x_lin_flattened = [x_lin_flattened; x_lin(:,8*(i-1)+1:8*i)];
         t_lin_flattened = [t_lin_flattened; t_lin(:,i)];
     end
-    
-    figure('Name', 'Linearization')
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('(Number of cells / L blood) x 1e9')
-    title("Number of Cells per L Blood vs Days Elapsed")
-    plot(t_lin_flattened,x_lin_flattened(:,4))
-    plot(t_lin_flattened,x_lin_flattened(:,5))
-    plot(t_lin_flattened,x_lin_flattened(:,6))
-    plot(t_lin_flattened,x_lin_flattened(:,7))
-    plot(t_lin_flattened,x_lin_flattened(:,8))
-    legend("x_4 Proliferating cells","x_5 Compartment 1","x_6 Compartment 2","x_7 Compartment 3","x_8 Mature neutrophils")
-    hold off
-    
-    
-    figure()
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('ANC (Number of cells / L blood) x 1e9')
-    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-    plot(t_lin_flattened,x_lin_flattened(:,8))
-    plot(t_ref_flattened,x_ref_flattened(:,8))
-    
-    yline(1,'-b')
-    yline(2,'-r')
-    
-    legend("Linearized","Original","Desired lower bound","Desired upper bound","Location","southwest")
-    hold off
 
     linearized_trajectory = x_lin_flattened(:,8);
     
@@ -284,26 +256,6 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
         u_noisy_r_flattened = [u_noisy_r_flattened; u_noisy_r(:,i)];
     end
     clear i;
-    
-    figure('Name', 'Reactive Controller 1')
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('ANC (Number of cells / L blood) x 1e9')
-    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-    plot(t_noisy_r_flattened,x_noisy_r_flattened(:,8))
-    plot(t_ref_flattened,x_ref_flattened(:,8))
-    yline(1,'-b')
-    yline(2,'-r')
-    legend("Noisy","Original","Desired lower bound","Desired upper bound","Location","southwest")
-    hold off
-    
-    figure('Name', 'Reactive Controller 2')
-    hold on
-    title("Noisy model reactive controller control sequence")
-    plot(t_noisy_r_flattened,u_noisy_r_flattened)
-    xlabel("Time elapsed (days)")
-    ylabel("Input dosage (mg)")
-    hold off
     
     toc
     
@@ -456,34 +408,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     anticipatory_trajectory = x8_c_plot;
 
-    figure('Name', 'Anticipatory 1')
-    plot(t_noisy_r_flattened(1:N),x_noisy_r_flattened(1:N,8));
-    hold on
     rho8_plot = reshape(rho(8,1,:),[N+1 1]); %anticipatory
-    plot(time, x8_c_plot)
-    hold on
-    plot(time,rho8_plot)
-    legend('reactive','KF','nominal')
-    
-    
-    
-    figure('Name', 'Anticipatory 2')
-    hold on
-    title("Noisy model KF controller control sequence")
-    plot(time(1:N),u_c)
-    xlabel("Time elapsed (days)")
-    ylabel("Input dosage (mg)")
-    hold off
-    
-    figure('Name', 'Anticipatory 3')
-    hold on
-    title("Noisy model control sequence comparison")
-    plot(t_noisy_r_flattened,u_noisy_r_flattened) % u_noisy_r_flattened is reactive
-    plot(time(1:N),u_c) % u_c is anticipatory dosage
-    legend('reactive control sequence','KF control sequence')
-    xlabel("Time elapsed (days)")
-    ylabel("Input dosage (mg)")
-    hold off
     
     toc
     %time = t_ref_flattened;
@@ -536,39 +461,11 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
         u_smoothed = [u_smoothed u_i];
     end
     
-    figure()
-    hold on
-    plot(time(1:N),u_c);
-    plot(t,u_smoothed_flattened);
-    lgd = legend('KF control sequence', 'Smoothed KF control sequence');
-    lgd.Location = "northoutside";
-    xlabel("Time elapsed (days)");
-    ylabel("Input dosage (mg)");
-    title("Smoothed Control Sequence for Kalman Filter Controller")
-    hold off
-    
-    figure()
-    hold on
-    plot(t_noisy_r_flattened,u_noisy_r_flattened, "LineWidth", 2)
-    plot(t,u_smoothed_flattened, "LineWidth", 2)
-    lgd = legend('Reactive control sequence', 'Smoothed KF control sequence');
-    lgd.Location = "northoutside";
-    xlabel("Time elapsed (days)");
-    ylabel("Input dosage (mg)");
-    title("Smoothed KF Control Sequence vs. Reactive Control Sequence")
-    hold off
-    
     clear t start_i i day idx_7_days_later sum u_i
     
     anticipatory_dosage = u_smoothed_flattened.';
     
     %% 2.8.2 Model's Response with Smoothed Inputs - Cyclic Intervals
-    
-    x_smoothed = [];
-    t_smoothed = [];
-    step_size_smoothed = 0.01; % very fine step size
-    num_t_smoothed = (1/step_size_smoothed)*21+1; % number of timepoints to evaluate ODE45
-    tspan = linspace(0,21,num_t_smoothed);
     
     x0_i = x0;
         
@@ -591,35 +488,6 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
         t_smoothed_flattened = [t_smoothed_flattened; t_smoothed(:,i)];
     end
     clear i;
-    
-    %% 2.8.3 Plotting Response of Smoothed Inputs
-    
-    figure()
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('ANC (Number of cells / L blood) x 1e9')
-    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-    % plot(time,rho8_plot*1e9, "LineWidth", 2)
-    plot(time,x8_c_plot);
-    % plot(t_noisy_r_flattened,x_noisy_r_flattened(:,8)*1e9)
-    plot(t_smoothed_flattened,x_smoothed_flattened(:,8), "LineWidth", 2)
-    yline(1,'-b')
-    yline(2,'-r')
-    legend("Original", "Smoothed", "Desired lower bound","Desired upper bound","Location","southwest")
-    hold off
-    
-    figure()
-    hold on
-    xlabel('Days Elapsed')
-    ylabel('ANC (Number of cells / L blood) x 1e9')
-    title("All Neutrophil Count (ANC) x_8 vs Days Elapsed")
-    plot(time,rho8_plot, "LineWidth", 2)
-    % plot(t_noisy_r_flattened,x_noisy_r_flattened(:,8)*1e9)
-    plot(t_smoothed_flattened,x_smoothed_flattened(:,8), "LineWidth", 2)
-    yline(1,'-b')
-    yline(2,'-r')
-    legend("Nominal", "Smoothed", "Desired lower bound","Desired upper bound","Location","southwest")
-    hold off
 
     time = t_ref_flattened;
     toc
