@@ -1,4 +1,4 @@
-function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, anticipatory_trajectory, reactive_dosage, anticipatory_dosage] = runController(bsa_arg, num_cycles_arg, dosage, anc_measurements)
+function [time, nominal_trajectory, reactive_trajectory, anticipatory_trajectory, reactive_dosage, anticipatory_dosage] = runController(bsa_arg, num_cycles_arg, dosage, anc_measurements)
     %% 2. Trajectory with Jost et al. model
     %% 2.1 Intialization of constants
     bsa = bsa_arg;
@@ -40,7 +40,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
             theta(6) = anc_measurements(i);
         end
 
-        u_ref = [u_ref [u_i*(ones((1/step_size_ref)*14,1));zeros((1/step_size_ref)*(21-14)+1,1)]];
+        u_ref = [u_ref [u_i*(ones((1/step_size_ref)*14,1));zeros((1/step_size_ref)*(21-14),1)]];
         [t_i,x_i] = ode45(@(t,x)jost(t,x,u_i,theta),tspan,x0_i);
         t_i = t_i + 21*(i-1); % shift the time index to the current cycle
         % check lower bound
@@ -70,78 +70,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
 
     nominal_trajectory = x_ref_flattened(:,8);
     
-    %% 2.6 Linearization
-    
-    bsa = bsa_arg; % trajectory near original bsa
-    theta = [31.2;12.72;0.019;9.9216;0.219*(bsa^1.16);anc_measurements(1);0.146;0.103;0.866;2.3765];
-    x_lin = [];
-    t_lin = [];
-    u_lin = [];
-    step_size_lin = 0.01; % coarse step size; NOTE: because of forward euler's small stability region, the largest I could get this is 0.05 with a different bsa
-    num_t_lin = (1/step_size_lin)*21+1; % number of timepoints to evaluate ODE45
-    tspan = linspace(0,21,num_t_lin);
-    
-    
-    t_lin_j_start = 0; % current time at end of last cycle
-    x_t = x0; % initial "guess"
-    % u_i = dosage*bsa;
-    
-    
-    dx_t = zeros(8,1); % keep track of delta x
-    %du_t = 0; % keep track of delta u
-    
-    dx_t_arr = [];
-    
-    for i=1:num_cycles
-        
-        if i <= length(historical_dosages)
-            u_i = historical_dosages(i);
-        end
-
-        u_lin = [u_lin u_i];
-        u_star = u_ref(end,i);
-        du_t = u_i - u_star;
-    
-        x_ref_i = x_ref(:,8*(i-1)+1:8*i);
-        x_lin_j = [];
-        t_lin_j = [];
-        
-        for j=1:length(tspan)
-            x_star = transpose(x_ref_i(round((j-1)*step_size_lin/step_size_ref)+1,:));
-            %round((j-1)*step_size_lin/step_size_ref)+1
-            x_t = x_star+dx_t;
-            x_lin_j = [x_lin_j; transpose(x_t)];
-    
-            [f, dfdx, dfdu, dgdx] = jost_fwd_euler(tspan(j),x_star,u_star,theta,step_size_lin);
-            dx_t = dfdx*dx_t+dfdu*du_t;
-            if tspan(j) >= 14
-                % u_i and u_ref(i) are both zero after 14 days
-                du_t = 0;
-            end
-            t_lin_j = [t_lin_j; t_lin_j_start+tspan(j)];
-        end
-        t_lin = [t_lin t_lin_j];
-        x_lin = [x_lin x_lin_j];
-    
-        % check lower bound
-        if x_t(8) < 1
-            u_i = 0.8*u_i;
-        elseif x_t(8) > 2 % check upper bound
-            u_i = 1.2*u_i;
-        end
-        t_lin_j_start = t_lin_j_start + 21; % shift the time index to the current cycle
-    end
-    
-    t_lin_flattened = [];
-    x_lin_flattened = [];
-    for i=1:num_cycles
-        x_lin_flattened = [x_lin_flattened; x_lin(:,8*(i-1)+1:8*i)];
-        t_lin_flattened = [t_lin_flattened; t_lin(:,i)];
-    end
-
-    linearized_trajectory = x_lin_flattened(:,8);
-    
-    clear i j x_lin_j x0_i u_i tspan;
+    clear i t_i x_i x0_i u_i tspan;
     
     %% 2.7.1 Trajectory with Noise; Setup
     
@@ -157,7 +86,6 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     %% 2.7.2 Trajectory with Noise; Reactive Controller
     tic
     
-    u_i = dosage*bsa;
     x0_i = x0;
     
     y = [];
@@ -178,10 +106,10 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
             theta(6) = anc_measurements(i);
         end
         
-        u_i_all = [transpose(repelem(u_i,(1/step_size_noisy)*14));transpose(repelem(0,(1/step_size_noisy)*(21-14)+1))];
+        u_i_all = [transpose(repelem(u_i,(1/step_size_noisy)*14));transpose(repelem(0,(1/step_size_noisy)*(21-14)))];
         u_noisy_r = [u_noisy_r u_i_all];
         [t_i,x_i] = ode45(@(t,x)jost_noisy(t,x,u_i,theta,step_size_noisy,var_w),tspan,x0_i);
-        t_i = t_i + 20*(i-1); % shift the time index to the current cycle
+        t_i = t_i + 21*(i-1); % shift the time index to the current cycle
         
         % make a "reading"
         % ground truth (at the end of the cycle)
@@ -454,6 +382,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     end
     clear i;
 
+    % anticipatory_trajectory = x_smoothed_flattened(:,8);
     time = t_ref_flattened;
     toc
     
