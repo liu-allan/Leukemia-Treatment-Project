@@ -2,7 +2,8 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     %% 2. Trajectory with Jost et al. model
     %% 2.1 Intialization of constants
     bsa = bsa_arg;
-    theta = [31.2;12.72;0.019;9.9216;0.219*(bsa^1.16);2.06;0.146;0.103;0.866;2.3765];
+    anc_measurements = cell2mat(anc_measurements);
+    theta = [31.2;12.72;0.019;9.9216;0.219*(bsa^1.16);anc_measurements(1);0.146;0.103;0.866;2.3765];
     % initial values (from Jost et al.)
     x0 = [0;...
         0;...
@@ -23,10 +24,9 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     step_size_ref = 0.01; % very fine step size
     num_t_ref = (1/step_size_ref)*21+1; % number of timepoints to evaluate ODE45
     tspan = linspace(0,21,num_t_ref); %21 days
-    
     dosage = cell2mat(dosage);
     historical_dosages = dosage*bsa; % 6-MP dosage (mg 6-MP/m^2 body surface area)
-    anc_measurements = cell2mat(anc_measurements);
+    
     x0_i = x0;
     %1 cycle is 21 days
     for i=1:num_cycles
@@ -37,6 +37,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
 
         if i <= length(anc_measurements)
             x0_i(8) = anc_measurements(i);
+            theta(6) = anc_measurements(i);
         end
 
         u_ref = [u_ref [u_i*(ones((1/step_size_ref)*14,1));zeros((1/step_size_ref)*(21-14)+1,1)]];
@@ -72,7 +73,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     %% 2.6 Linearization
     
     bsa = bsa_arg; % trajectory near original bsa
-    theta = [31.2;12.72;0.019;9.9216;0.219*(bsa^1.16);2.06;0.146;0.103;0.866;2.3765];
+    theta = [31.2;12.72;0.019;9.9216;0.219*(bsa^1.16);anc_measurements(1);0.146;0.103;0.866;2.3765];
     x_lin = [];
     t_lin = [];
     u_lin = [];
@@ -174,6 +175,7 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
 
         if i <= length(anc_measurements)
             x0_i(8) = anc_measurements(i);
+            theta(6) = anc_measurements(i);
         end
         
         u_i_all = [transpose(repelem(u_i,(1/step_size_noisy)*14));transpose(repelem(0,(1/step_size_noisy)*(21-14)+1))];
@@ -234,7 +236,9 @@ function [time, nominal_trajectory, linearized_trajectory, reactive_trajectory, 
     
     % Initialize motion function
     syms x1_sym x2_sym x3_sym x4_sym x5_sym x6_sym x7_sym x8_sym u_sym
-    
+
+    theta = [31.2;12.72;0.019;9.9216;0.219*(bsa^1.16);anc_measurements(1);0.146;0.103;0.866;2.3765];
+
     f = [-theta(1)                0 0 0 0 0 0 0; ...
         theta(1) -theta(2)          0 0 0 0 0 0; ...
         0 theta(3)*theta(4) -theta(5) 0 0 0 0 0; ...
